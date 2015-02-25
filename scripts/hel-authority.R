@@ -1,4 +1,4 @@
-# Create a table of PMIDs and numbers of authors from Author-ity
+# Create a data.table of author IDs with a list column of PMIDs
 
 # set working directory
 if(file.exists('~/Documents')) setwd('~/Documents/CQM/')
@@ -25,29 +25,30 @@ no.aid <- countLines(authority)[[1]] - 1
 # in-r-how-can-read-lines-by-number-from-a-large-file
 con <- file(authority)
 open(con)
-header <- readLines(con, n = 1)
-pmid.col <- c()
+cols <- strsplit(readLines(con, n = 1), ',')[[1]]
+close(con)
+dats <- list() # hyper-edge lists
 i <- 1
 while(i < no.aid) {
     nrows <- min(no.lines, no.aid - i)
-    new.lines <- readLines(con, n = nrows)
-    new.tab <- read.csv(textConnection(new.lines, 'rt'), header = FALSE)
-    pmid.col <- c(pmid.col, as.character(new.tab[, 6]))
+    # read as a data.table
+    new.dat <- fread(authority, header = FALSE,
+                     sep = ',',
+                     skip = i, nrows = no.lines)
+    setnames(new.dat, colnames(new.dat), cols)
+    new.dat <- new.dat[, c('author', 'papers'), with = FALSE]
+    dats <- c(dats, list(new.dat))
     i <- i + nrows
     print(i)
 }
-close(con)
 
-save(pmid.col, file = 'proj/pubmed.evolution/data/pmids-authority.RData')
+# combine hyper-edge lists
+hel <- rbindlist(dats)
+# remove author placement indicators
+hel[, papers := gsub('([0-9])\\_[0-9]+((?:$|\\|))', '\\1\\2', papers)]
+# split papers column at pipes
+hel[, papers := strsplit(papers, '\\|')]
 
-# split by '|', unlist, and remove author position indicators
-pmid.vec <- gsub('_[0-9]+$', '', unlist(strsplit(pmid.col, '|', fixed = TRUE)))
-
-# make a frequency table and sort it by PMID
-pmid.tab <- table(pmid.vec)
-pmid.dt1 <- data.table(pmid = as.numeric(names(pmid.tab)), count = pmid.tab)
-setkey(pmid.dt1, pmid)
-
-save(pmid.dt1, file = 'proj/pubmed.evolution/data/pmids-authority.RData')
+save(hel, file = 'proj/pubmed.evolution/data/hel-authority.RData')
 
 rm(list = ls())

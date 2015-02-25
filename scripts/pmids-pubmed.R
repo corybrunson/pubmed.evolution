@@ -29,7 +29,7 @@ pubmed.files <- paste0(
 
 dat2pmid <- function(dat) {
     data.table(
-        pmid = as.numeric(as.character(dat[, 1])),
+        pmid = as.numeric(as.character(dat$pmid)),
         count = count.instances(as.character(dat$au), '|') + 1,
         year = as.numeric(substr(dat$dp, 1, 4))
     )
@@ -51,20 +51,22 @@ dat2pmid <- function(dat) {
 # medline12n0446.xml.txt: 11053342 R"R-01243 -> RR-01243
 
 # PMIDs!
-pmid.dat <- c()
+pmid.dt2 <- c()
 j <- 0
 for(file in pubmed.files) {
     print(file)
+    lines <- readLines(file)
     new.dat <- read.pubmed(file)
+    if(nrow(new.dat) != length(lines) - 1) stop('Bad read')
     new.pmid <- cbind(dat2pmid(new.dat), file = as.numeric(substr(file, 24, 27)))
     # Append to existing data and save
-    pmid.dat <- rbindlist(list(pmid.dat, new.pmid))
+    pmid.dt2 <- rbindlist(list(pmid.dt2, new.pmid))
     if(grepl('000', file))
-        save(pmid.dat, file = 'proj/pubmed.evolution/data/pmids-pubmed.RData')
+        save(pmid.dt2, file = 'proj/pubmed.evolution/data/pmids-pubmed.RData')
 }
 
 # sort by PMID
-setkey(pmid.dat, pmid)
-save(pmid.dat, file = 'proj/pubmed.evolution/data/pmids-pubmed.RData')
+setkey(pmid.dt2, pmid)
+save(pmid.dt2, file = 'proj/pubmed.evolution/data/pmids-pubmed.RData')
 
 rm(list = ls())

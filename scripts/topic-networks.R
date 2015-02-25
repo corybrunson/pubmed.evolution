@@ -1,9 +1,4 @@
-# Identify the literature for each topic
-
-# SENSITIVITY ANALYSIS: THREE WAYS TO DO THIS:
-# 1. Papers with exact MeSH terms
-# 2. Papers with MeSH terms or their children in the tree [CURRENT VERSION]
-# 3. Papers with certain strings appearing among their MeSH terms
+# Construct and run basic stats on the networks for each topic
 
 # set working directory
 if(file.exists('~/Documents')) setwd('~/Documents/CQM/')
@@ -17,34 +12,32 @@ for(pkg in pkgs) {
     }
 }
 
-# Read in the topics list
-source('proj/pubmed.evolution/code/topics.R')
+# Read in the topic PMID vectors and the Author-ity PMID data.table
+load('proj/pubmed.evolution/data/pmid-intersect.RData')
+load('proj/pubmed.evolution/data/topic-pmids.RData')
+load('proj/pubmed.evolution/data/hel-authority.RData')
 
-# File names for PubMed dump
-pubmed.files <- paste0(
-    'data/medline/',
-    list.files('data/medline/', 'medline12n*')
-)
-
-# Expand the topics vector to include children in the MeSH tree
-topic.fam <- lapply(topics, mesh.family)
-
-# Proceed along the files, building up a vector of PMIDs for each topic
-topic.pmids <- lapply(topics, function(vec) c())
-for(file in pubmed.files) {
-    print(file)
-    dat <- read.pubmed(file)
-    for(i in 1:length(topics)) {
-        re <- paste(paste0('(^|\\|)',
-                           topic.fam[[i]],
-                           '($|\\((Y|N)\\))'),
-                    collapse = '|')
-        topic.pmids[[i]] <- c(topic.pmids[[i]],
-                              dat[grep(re, dat$mh), ]$pmid)
-    }
+# For each topic PMID vector `vec`...
+for(i in 1:length(topic.pmids)) {
+    vec <- topic.pmids[[i]]
+    # Subset pmid.use on PMIDs in vec
+    sub.use <- pmid.use[pmid %in% vec]
+    # Create a vector of years with names the PMIDs
+    yrs <- sub.use$year
+    names(yrs) <- sub.use$pmid
+    # Remove papers outside vec and then authors who have none inside vec
+    sub.hel <- hel
+    sub.hel$papers <- lapply(sub.hel$papers, intersect, y = vec)
+    sub.hel <- subset(sub.hel, sapply(papers, length) > 0)
+    # Create a bipartite graph from the hyper-edge list
+    bigraph <- hel2bigraph(sub.hel)
+    if(vcount(bigraph) == 0) next
+    # Assign event nodes a `year` attribute
+    V(bigraph)$year[which(V(bigraph)$type)] <-
+        yrs[V(bigraph)$name[which(V(bigraph)$type)]]
+    # Save the graph in a file
+    save(bigraph, file = paste0('proj/pubmed.evolution/data/',
+                                names(topic.pmids)[i], '-bigraph.RData'))
 }
-
-# Save topic PMID lists
-save(topic.pmids, file = 'proj/pubmed.evolution/data/topic.pmids.RData')
 
 rm(list = ls())

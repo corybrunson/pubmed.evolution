@@ -34,6 +34,6 @@ pmid.use <- pmid.int[count.x == count.y]
 pubmed.use <- which(pmid.dt2$pmid %in% pmid.use$pmid)
 
 save(pmid.ex1, pmid.ex2, pmid.dis, pmid.use, pubmed.use,
-     file = 'proj/pubmed.evolution/data/pmid.intersect.RData')
+     file = 'proj/pubmed.evolution/data/pmid-intersect.RData')
 
 rm(list = ls())
